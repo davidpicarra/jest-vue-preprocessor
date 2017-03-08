@@ -1,21 +1,17 @@
 const vueCompiler = require('vue-template-compiler');
 const vueNextCompiler = require('vue-template-es2015-compiler');
-const babelCore = require('babel-core');
+const babelJest = require('babel-jest');
 
-const transformBabel = src => {
-  const transformOptions = {
-    presets: ['es2015'],
-    plugins: ['transform-runtime'],
-  };
-
-  let result;
-  try {
-    result = babelCore.transform(src, transformOptions).code;
-  } catch (error) {
-    // eslint-disable-next-line
-    console.error('Failed to compile scr with `babel` at `vue-preprocessor`');
-  }
-  return result;
+const transformBabel = (src, filePath, config, transformOptions) => {
+  // https://github.com/facebook/jest/blob/master/packages/babel-jest/src/index.js#L92
+  // https://github.com/babel/babel/blob/7.0/packages/babel-core/src/util.js#L15
+  // should pass second argument somehow... -> babel.util.canCompile(filePath, ['vue'])
+  return babelJest.process(
+    src,
+    filePath + '.js', // Adding a fake .js extension to activate babel-jest.
+    config,
+    transformOptions
+  );
 };
 
 const extractHTML = (template, templatePath) => {
@@ -52,13 +48,13 @@ const stringifyRender = render => vueNextCompiler('function render () {' + rende
 const stringifyStaticRender = staticRenderFns => `[${staticRenderFns.map(stringifyRender).join(',')}]`;
 
 module.exports = {
-  process(src, filePath) {
+  process(src, filePath, config, transformOptions) {
     // code copied from https://github.com/locoslab/vue-typescript-jest/blob/master/preprocessor.js
     // LICENSE MIT
     // @author https://github.com/locobert
     // heavily based on vueify (Copyright (c) 2014-2016 Evan You)
     const { script, template } = vueCompiler.parseComponent(src, { pad: true});
-    const transformedScript = transformBabel(script.content);
+    const transformedScript = transformBabel(script.content, filePath, config, transformOptions);
     let render;
     let staticRenderFns;
     if (template) {
